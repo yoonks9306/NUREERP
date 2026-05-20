@@ -3,16 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>누리RP | VC 조합 관리</title>
+    <title>NUREERP | VC 조합 관리</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">NR</span>
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" role="img">
+              <defs>
+                <linearGradient id="nureerp-logo-gradient" x1="8" x2="56" y1="8" y2="56">
+                  <stop offset="0" stop-color="#2dd4bf" />
+                  <stop offset="0.52" stop-color="#60a5fa" />
+                  <stop offset="1" stop-color="#a78bfa" />
+                </linearGradient>
+              </defs>
+              <rect width="64" height="64" rx="16" fill="url(#nureerp-logo-gradient)" />
+              <path d="M18 44V18h7l15 21V18h7v26h-7L25 23v21h-7Z" fill="#ffffff" />
+              <circle cx="18" cy="18" r="4" fill="#ecfeff" />
+              <circle cx="47" cy="18" r="4" fill="#f5f3ff" />
+              <circle cx="47" cy="44" r="4" fill="#eff6ff" />
+            </svg>
+          </span>
           <div>
-            <strong>누리RP</strong>
+            <strong>NUREERP</strong>
             <small>VC 조합 관리</small>
           </div>
         </div>
@@ -27,7 +42,7 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Internal Portfolio Command Center</p>
+            <p class="eyebrow">NUREERP Portfolio OS</p>
             <h1 id="page-title">대시보드</h1>
           </div>
           <div class="topbar-actions">

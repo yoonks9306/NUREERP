@@ -234,6 +234,8 @@ const seedState = {
   ],
 };
 
+const expandedSeedState = expandSeedState(seedState);
+
 let state = normalizeState(loadState());
 let currentView = "dashboard";
 let currentUserId = "u-james";
@@ -261,9 +263,14 @@ modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
 });
 
+window.addEventListener("hashchange", () => {
+  applyRouteFromHash();
+  render();
+});
+
 resetButton.addEventListener("click", () => {
   if (!confirm("저장된 변경사항을 지우고 시드 데이터로 초기화할까요?")) return;
-  state = normalizeState(structuredClone(seedState));
+  state = normalizeState(structuredClone(expandedSeedState));
   saveState();
   render();
 });
@@ -275,15 +282,211 @@ primaryAction.addEventListener("click", () => {
   return openFundModal();
 });
 
+applyRouteFromHash();
 render();
 
 function loadState() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : structuredClone(seedState);
+    return stored ? expandSeedState(JSON.parse(stored)) : structuredClone(expandedSeedState);
   } catch {
-    return structuredClone(seedState);
+    return structuredClone(expandedSeedState);
   }
+}
+
+function expandSeedState(baseState) {
+  const nextState = structuredClone(baseState);
+  nextState.funds ||= [];
+  nextState.lps ||= [];
+  nextState.fundLps ||= [];
+  nextState.companies ||= [];
+  nextState.investments ||= [];
+  nextState.users ||= [];
+
+  const fundOverrides = [
+    ["f-1", "카바 미래모빌리티 벤처투자조합 1호", "벤처투자조합", "모빌리티", "2031-03-14", 24600000000],
+    ["f-2", "카바 AI인프라 성장조합 1호", "벤처투자조합", "AI 인프라", "2030-05-31", 49800000000],
+    ["f-3", "카바 크로스보더 소비재조합 1호", "창업투자조합", "소비재", "2029-11-19", 28200000000],
+    ["f-4", "카바 헬스케어 디스커버리조합 2호", "벤처투자조합", "헬스케어", "2028-09-09", 19600000000],
+  ];
+
+  fundOverrides.forEach(([id, name, type, sector, maturityDate, aum], index) => {
+    const fund = nextState.funds.find((item) => item.id === id);
+    if (!fund) return;
+    fund.name = name;
+    fund.type = type;
+    fund.primarySector = sector;
+    fund.maturityDate = maturityDate;
+    fund.aum = aum;
+    fund.leadManagerId = ["u-kim", "u-park", "u-lee", "u-choi"][index];
+    fund.managerIds = [fund.leadManagerId, "u-james"];
+  });
+
+  const extraFunds = [
+    ["f-5", "카바 기후회복 테크조합 1호", "벤처투자조합", "2024-07-01", "2031-06-30", 36800000000, "u-james", "기후테크", 2.1],
+    ["f-6", "카바 딥테크 스케일업조합 1호", "신기술사업투자조합", "2023-10-18", "2030-10-17", 64200000000, "u-park", "딥테크", 2],
+    ["f-7", "카바 코리아 SaaS 오퍼튜니티조합 1호", "벤처투자조합", "2025-01-15", "2032-01-14", 22400000000, "u-james", "SaaS", 2.3],
+    ["f-8", "카바 바이오 프론티어조합 1호", "벤처투자조합", "2022-05-23", "2029-05-22", 39300000000, "u-choi", "바이오", 2.2],
+    ["f-9", "카바 로보틱스 전환조합 1호", "창업투자조합", "2021-12-06", "2026-08-18", 17100000000, "u-lee", "로보틱스", 2.4],
+    ["f-10", "카바 지역혁신 임팩트조합 1호", "벤처투자조합", "2024-11-04", "2031-11-03", 18800000000, "u-kim", "임팩트", 1.8],
+    ["f-11", "카바 핀테크 밸류업조합 2호", "신기술사업투자조합", "2020-09-01", "2026-04-30", 31200000000, "u-park", "핀테크", 2.2],
+    ["f-12", "카바 콘텐츠 IP 성장조합 1호", "창업투자조합", "2025-03-03", "2032-03-02", 14900000000, "u-lee", "콘텐츠", 2],
+  ];
+
+  extraFunds.forEach(([id, name, type, incorporationDate, maturityDate, aum, leadManagerId, primarySector, managementFeeRate]) => {
+    addUnique(nextState.funds, {
+      id,
+      name,
+      type,
+      incorporationDate,
+      maturityDate,
+      extensionYears: 2,
+      committedCapital: 0,
+      paidInCapital: 0,
+      aum,
+      leadManagerId,
+      managerIds: [leadManagerId, "u-james"],
+      primarySector,
+      status: "운용중",
+      gpShareRatio: 5,
+      managementFeeRate,
+    });
+  });
+
+  const extraLps = [
+    ["lp-10", "서울성장금융", "정책기관"], ["lp-11", "부산혁신펀드", "정책기관"],
+    ["lp-12", "우리은행", "금융기관"], ["lp-13", "하나증권", "금융기관"],
+    ["lp-14", "미래에셋캐피탈", "금융기관"], ["lp-15", "교직원공제회", "연기금공제회"],
+    ["lp-16", "우정사업본부", "연기금공제회"], ["lp-17", "네오브릿지홀딩스", "일반법인"],
+    ["lp-18", "라이트하우스파트너스", "일반법인"], ["lp-19", "더웨이브컴퍼니", "일반법인"],
+    ["lp-20", "K-Global Ventures", "외국인"], ["lp-21", "Blue Harbour Capital", "외국인"],
+    ["lp-22", "정민수", "개인"], ["lp-23", "한서윤", "개인"],
+    ["lp-24", "카바파트너스", "일반법인"], ["lp-25", "(GP 출자) 카바벤처스", "일반법인"],
+  ];
+
+  extraLps.forEach(([id, name, type]) => {
+    addUnique(nextState.lps, {
+      id,
+      name,
+      type,
+      contactPerson: "",
+      contactEmail: "",
+      contactPhone: "",
+      notes: "",
+    });
+  });
+
+  const extraCompanies = [
+    ["c-9", "루미나소재", "제조", "첨단소재", "Active", "Series B"],
+    ["c-10", "모듀페이", "핀테크", "Payment OS", "Active", "Series A"],
+    ["c-11", "하루커머스", "커머스", "SMB Commerce", "Active", "Pre-A"],
+    ["c-12", "파도에너지", "기후테크", "Grid Storage", "Active", "Series B"],
+    ["c-13", "그린루트", "기후테크", "Carbon Logistics", "Active", "Series A"],
+    ["c-14", "메디스코프", "디지털헬스케어", "Imaging AI", "Active", "Series A"],
+    ["c-15", "플라나웍스", "SaaS", "Workflow", "Active", "Seed"],
+    ["c-16", "셀로라바이오", "바이오", "Cell Therapy", "Active", "Series B"],
+    ["c-17", "오르빗키친", "푸드테크", "Kitchen OS", "Active", "Pre-A"],
+    ["c-18", "시그널네스트", "AI/딥테크", "Decision AI", "Active", "Series A"],
+    ["c-19", "블루노트로보틱스", "로보틱스", "Warehouse Robotics", "Active", "Series B"],
+    ["c-20", "노바진랩스", "바이오", "Genomics", "Active", "Series C"],
+    ["c-21", "패킷플로우코리아", "SaaS", "Network Ops", "Active", "Series A"],
+    ["c-22", "아스터모빌리티", "모빌리티", "Fleet Data", "Active", "Series B"],
+    ["c-23", "퀼트AI", "AI/딥테크", "Enterprise AI", "Active", "Series A"],
+    ["c-24", "라티스마인드코리아", "AI/딥테크", "Knowledge Graph", "Active", "Seed"],
+    ["c-25", "카이로헬스", "디지털헬스케어", "Remote Care", "Active", "Series A"],
+    ["c-26", "핀룸", "핀테크", "Wealth API", "Active", "Pre-A"],
+    ["c-27", "베르다그리드", "기후테크", "Energy Analytics", "Active", "Series A"],
+    ["c-28", "파운드리오에스", "제조", "Factory OS", "Active", "Series B"],
+    ["c-29", "LatticeMind", "AI/딥테크", "Model Ops", "Active", "Series A"],
+    ["c-30", "KairoHealth", "디지털헬스케어", "Clinic Platform", "Active", "Series B"],
+    ["c-31", "Cellora Bio", "바이오", "Synthetic Bio", "Active", "Series A"],
+    ["c-32", "FoundryOS", "제조", "Industrial SaaS", "Active", "Series B"],
+    ["c-33", "Lumina Materials", "제조", "Battery Materials", "Active", "Series C"],
+    ["c-34", "VerdaGrid", "기후테크", "Grid Software", "Active", "Series A"],
+    ["c-35", "BlueNote Robotics", "로보틱스", "Service Robotics", "Active", "Series B"],
+    ["c-36", "NovaGene Labs", "바이오", "Gene Editing", "Active", "Series C"],
+    ["c-37", "Aster Mobility", "모빌리티", "Logistics Mobility", "Active", "Series A"],
+    ["c-38", "Finloom", "핀테크", "Embedded Finance", "Active", "Series A"],
+  ];
+
+  extraCompanies.forEach(([id, name, sector, subSector, status, currentStage], index) => {
+    addUnique(nextState.companies, {
+      id,
+      name,
+      businessNumber: "",
+      ceoName: ["김도윤", "이서진", "박하린", "정유민", "최민재"][index % 5],
+      sector,
+      subSector,
+      foundedDate: `${2017 + (index % 7)}-${String((index % 12) + 1).padStart(2, "0")}-15`,
+      website: "",
+      status,
+      currentStage,
+      totalInvestedAmount: 0,
+      currentValuation: 0,
+      notes: "",
+    });
+  });
+
+  const fundIds = nextState.funds.map((fund) => fund.id);
+  const lpIds = nextState.lps.map((lp) => lp.id);
+  fundIds.forEach((fundId, fundIndex) => {
+    const selectedLpIds = [
+      lpIds[fundIndex % lpIds.length],
+      lpIds[(fundIndex + 4) % lpIds.length],
+      lpIds[(fundIndex + 8) % lpIds.length],
+      lpIds[(fundIndex + 13) % lpIds.length],
+      "lp-25",
+    ].filter(Boolean);
+    const ratios = [36, 24, 18, 14, 8];
+    selectedLpIds.forEach((lpId, lpIndex) => {
+      const baseCommitment = (180 + fundIndex * 35) * 100000000;
+      const commitmentAmount = Math.round((baseCommitment * ratios[lpIndex]) / 100);
+      const paidInAmount = Math.round(commitmentAmount * (0.55 + ((fundIndex + lpIndex) % 4) * 0.1));
+      if (nextState.fundLps.some((item) => item.fundId === fundId && item.lpId === lpId)) return;
+      addUnique(nextState.fundLps, {
+        id: `flp-auto-${fundId}-${lpId}`,
+        fundId,
+        lpId,
+        commitmentAmount,
+        paidInAmount,
+        ownershipRatio: ratios[lpIndex],
+        joinedDate: nextState.funds.find((fund) => fund.id === fundId)?.incorporationDate || "",
+      });
+    });
+  });
+
+  const rounds = ["Seed", "Pre-A", "Series A", "Series B", "Series C"];
+  const securities = ["RCPS", "우선주", "보통주", "CB", "SAFE"];
+  const userIds = nextState.users.map((user) => user.id);
+  nextState.companies.forEach((company, companyIndex) => {
+    const roundCount = companyIndex % 4 === 0 ? 3 : companyIndex % 3 === 0 ? 2 : 1;
+    for (let roundIndex = 0; roundIndex < roundCount; roundIndex += 1) {
+      const fundId = fundIds[(companyIndex + roundIndex) % fundIds.length];
+      const investmentAmount = (5 + ((companyIndex + roundIndex) % 13)) * 100000000;
+      const postMoneyValuation = investmentAmount * (8 + ((companyIndex + roundIndex) % 9));
+      addUnique(nextState.investments, {
+        id: `inv-auto-${company.id}-${roundIndex}`,
+        fundId,
+        companyId: company.id,
+        leadAssociateId: userIds[(companyIndex + roundIndex) % userIds.length],
+        round: rounds[Math.min(roundIndex + (companyIndex % 2), rounds.length - 1)],
+        investmentDate: `${2021 + ((companyIndex + roundIndex) % 5)}-${String(((companyIndex + roundIndex) % 12) + 1).padStart(2, "0")}-20`,
+        investmentAmount,
+        securityType: securities[(companyIndex + roundIndex) % securities.length],
+        preMoneyValuation: postMoneyValuation - investmentAmount,
+        postMoneyValuation,
+        ownershipAfter: round((investmentAmount / postMoneyValuation) * 100, 1),
+        icDate: `${2021 + ((companyIndex + roundIndex) % 5)}-${String(((companyIndex + roundIndex) % 12) + 1).padStart(2, "0")}-05`,
+        icResolution: "승인",
+      });
+    }
+  });
+
+  return nextState;
+}
+
+function addUnique(collection, item) {
+  if (!collection.some((target) => target.id === item.id)) collection.push(item);
 }
 
 function normalizeState(nextState) {
@@ -317,13 +520,42 @@ function saveState() {
 function setView(view) {
   currentView = view;
   selected = { fundId: null, companyId: null };
-  document.querySelectorAll(".nav-item").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === view);
-  });
+  syncHashFromState();
+  updateActiveNav();
   render();
 }
 
+function updateActiveNav() {
+  document.querySelectorAll(".nav-item").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === currentView);
+  });
+}
+
+function syncHashFromState() {
+  const hash = routeToHash();
+  if (window.location.hash !== hash) window.location.hash = hash;
+}
+
+function routeToHash() {
+  if (currentView === "funds" && selected.fundId) return `#/funds/${selected.fundId}`;
+  if (currentView === "funds") return "#/funds";
+  if (currentView === "companies" && selected.companyId) return `#/companies/${selected.companyId}`;
+  if (currentView === "companies") return "#/companies";
+  if (currentView === "lps") return "#/lps";
+  return "#/";
+}
+
+function applyRouteFromHash() {
+  const parts = (window.location.hash || "#/").replace(/^#\/?/, "").split("/").filter(Boolean);
+  currentView = parts[0] === "funds" || parts[0] === "companies" || parts[0] === "lps" ? parts[0] : "dashboard";
+  selected = { fundId: null, companyId: null };
+  if (currentView === "funds" && parts[1]) selected.fundId = parts[1];
+  if (currentView === "companies" && parts[1]) selected.companyId = parts[1];
+  updateActiveNav();
+}
+
 function render() {
+  updateActiveNav();
   const titles = {
     dashboard: "대시보드",
     funds: selected.fundId ? "조합 상세" : "조합",
@@ -351,6 +583,12 @@ function renderDashboard() {
   const totalAum = sum(state.funds, "aum");
   const totalCommitted = sum(state.funds, "committedCapital");
   const sectorCounts = groupCount(state.companies, "sector");
+  const statusCounts = groupCount(state.companies, "status");
+  const fundAum = state.funds
+    .slice()
+    .sort((a, b) => b.aum - a.aum)
+    .slice(0, 8)
+    .map((fund) => ({ label: fund.name.replace(/^카바\s/, ""), count: fund.aum }));
 
   root.innerHTML = `
     <section class="kpi-grid">
@@ -358,6 +596,15 @@ function renderDashboard() {
       ${kpi("총 운용규모", formatKrw(totalAum))}
       ${kpi("총 출자약정총액", formatKrw(totalCommitted))}
       ${kpi("총 포트폴리오사 수", `${state.companies.length}개`)}
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>AUM by 조합</h2>
+          <p class="muted">운용규모 상위 조합 기준입니다.</p>
+        </div>
+      </div>
+      ${barChart(fundAum, { valueFormatter: formatKrw })}
     </section>
     <section class="two-column">
       <div class="panel">
@@ -372,8 +619,17 @@ function renderDashboard() {
       </div>
       <div class="panel">
         <h2>섹터별 투자 분포</h2>
-        ${barChart(sectorCounts)}
+        ${donutChart(sectorCounts)}
       </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>포트폴리오사 Status</h2>
+          <p class="muted">Active, Exited, Written-off 등 현재 상태 분포입니다.</p>
+        </div>
+      </div>
+      ${donutChart(statusCounts)}
     </section>
   `;
 
@@ -464,6 +720,7 @@ function renderFundDetail(fundId) {
 
   root.querySelector("[data-action='back']").addEventListener("click", () => {
     selected.fundId = null;
+    syncHashFromState();
     render();
   });
   root.querySelector("[data-action='edit-fund']").addEventListener("click", () => openFundModal(fund));
@@ -558,6 +815,18 @@ function renderCompanyDetail(companyId) {
     <section class="panel">
       <div class="panel-header">
         <div>
+          <h2>투자 지표 변화</h2>
+          <p class="muted">라운드별 valuation과 보유지분율 변화를 표시합니다.</p>
+        </div>
+      </div>
+      <div class="two-column">
+        ${trendChart(investments, "postMoneyValuation", "Valuation", formatKrw)}
+        ${trendChart(investments, "ownershipAfter", "보유지분율", (value) => `${round(value, 1)}%`)}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <div>
           <h2>라운드 히스토리</h2>
           <p class="muted">라운드별 valuation, 보유지분율, 투자위원회 메타데이터를 추적합니다.</p>
         </div>
@@ -572,6 +841,7 @@ function renderCompanyDetail(companyId) {
 
   root.querySelector("[data-action='back']").addEventListener("click", () => {
     selected.companyId = null;
+    syncHashFromState();
     render();
   });
   root.querySelector("[data-action='edit-company']").addEventListener("click", () => openCompanyModal(company));
@@ -938,23 +1208,94 @@ function roundTimeline(investments) {
   `;
 }
 
-function barChart(entries) {
-  const total = entries.reduce((acc, item) => acc + item.count, 0);
-  if (!total) return `<div class="empty-state">표시할 데이터가 없습니다.</div>`;
+function trendChart(items, key, title, formatter) {
+  const entries = items.filter((item) => Number(item[key]) > 0);
+  if (!entries.length) return `<div class="empty-state">${title} 데이터가 없습니다.</div>`;
+  const width = 520;
+  const height = 180;
+  const pad = 24;
+  const values = entries.map((item) => Number(item[key]));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const points = entries
+    .map((item, index) => {
+      const x = entries.length === 1 ? width / 2 : pad + (index / (entries.length - 1)) * (width - pad * 2);
+      const y = height - pad - ((Number(item[key]) - min) / span) * (height - pad * 2);
+      return { x, y, item };
+    });
+  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+  return `
+    <div class="mini-chart">
+      <div class="mini-chart-header">
+        <strong>${title}</strong>
+        <span>${formatter(values.at(-1))}</span>
+      </div>
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${title} 변화">
+        <polyline points="${polyline}" fill="none" stroke="#14b8a6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="5" fill="#60a5fa" />`).join("")}
+      </svg>
+      <div class="mini-chart-labels">
+        ${entries.map((item) => `<span>${item.round}</span>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function barChart(entries, options = {}) {
+  const max = Math.max(...entries.map((item) => item.count), 0);
+  const total = sum(entries, "count");
+  if (!max || !total) return `<div class="empty-state">표시할 데이터가 없습니다.</div>`;
   return `
     <div class="chart-bars">
       ${entries
         .map((item) => {
-          const pct = Math.round((item.count / total) * 100);
+          const pct = Math.max(4, Math.round((item.count / max) * 100));
+          const value = options.valueFormatter ? options.valueFormatter(item.count) : `${Math.round((item.count / sum(entries, "count")) * 100)}%`;
           return `
             <div class="chart-row">
               <strong>${escapeHtml(item.label)}</strong>
               <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-              <span class="number">${pct}%</span>
+              <span class="number">${value}</span>
             </div>
           `;
         })
         .join("")}
+    </div>
+  `;
+}
+
+function donutChart(entries) {
+  const total = sum(entries, "count");
+  if (!total) return `<div class="empty-state">표시할 데이터가 없습니다.</div>`;
+  let cursor = 0;
+  const colors = ["#2dd4bf", "#60a5fa", "#a78bfa", "#f59e0b", "#10b981", "#f43f5e", "#38bdf8", "#c084fc"];
+  const stops = entries
+    .map((item, index) => {
+      const start = cursor;
+      const end = cursor + (item.count / total) * 100;
+      cursor = end;
+      return `${colors[index % colors.length]} ${start}% ${end}%`;
+    })
+    .join(", ");
+  return `
+    <div class="donut-wrap">
+      <div class="donut" style="background: conic-gradient(${stops})">
+        <span>${total}</span>
+      </div>
+      <div class="donut-legend">
+        ${entries
+          .map(
+            (item, index) => `
+              <div class="legend-row">
+                <span class="legend-dot" style="background:${colors[index % colors.length]}"></span>
+                <strong>${escapeHtml(item.label)}</strong>
+                <span>${item.count}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
     </div>
   `;
 }
@@ -1340,9 +1681,7 @@ function bindFundRows() {
     row.addEventListener("click", () => {
       currentView = "funds";
       selected.fundId = row.dataset.fundId;
-      document.querySelectorAll(".nav-item").forEach((button) => {
-        button.classList.toggle("active", button.dataset.view === "funds");
-      });
+      syncHashFromState();
       render();
     });
   });
@@ -1353,9 +1692,7 @@ function bindCompanyRows() {
     row.addEventListener("click", () => {
       currentView = "companies";
       selected.companyId = row.dataset.companyId;
-      document.querySelectorAll(".nav-item").forEach((button) => {
-        button.classList.toggle("active", button.dataset.view === "companies");
-      });
+      syncHashFromState();
       render();
     });
   });
@@ -1366,7 +1703,7 @@ function bindFundLinks() {
     button.addEventListener("click", () => {
       currentView = "funds";
       selected = { fundId: button.dataset.fundLink, companyId: null };
-      document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === "funds"));
+      syncHashFromState();
       render();
     });
   });
@@ -1377,7 +1714,7 @@ function bindCompanyLinks() {
     button.addEventListener("click", () => {
       currentView = "companies";
       selected = { fundId: null, companyId: button.dataset.companyLink };
-      document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === "companies"));
+      syncHashFromState();
       render();
     });
   });
@@ -1461,9 +1798,7 @@ function maturityBadge(fund) {
   const days = daysUntil(fund.maturityDate);
   if (Number.isNaN(days)) return `<span class="badge">-</span>`;
   if (days < 0) return `<span class="badge danger">만기 경과</span>`;
-  if (days <= 90) return `<span class="badge danger">3개월 이내</span>`;
-  if (days <= 180) return `<span class="badge warning">6개월 이내</span>`;
-  if (days <= 365) return `<span class="badge warning">12개월 이내</span>`;
+  if (days <= 180) return `<span class="badge warning">만기 임박</span>`;
   return `<span class="badge success">${Math.ceil(days / 365)}년 남음</span>`;
 }
 
