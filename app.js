@@ -239,11 +239,13 @@ const expandedSeedState = expandSeedState(seedState);
 let state = normalizeState(loadState());
 let currentView = "dashboard";
 let currentUserId = "u-james";
+let dashboardFeaturedFundId = "";
 let selected = { fundId: null, companyId: null };
 let filters = {
   funds: { q: "", status: "all", type: "all" },
   companies: { q: "", status: "all", sector: "all", stage: "all", associate: "all", fund: "all", myOnly: false },
   lps: { q: "", fund: "all", type: "all" },
+  projects: { q: "", company: "all", status: "all", owner: "all", priority: "all" },
 };
 
 const root = document.querySelector("#view-root");
@@ -278,6 +280,7 @@ resetButton.addEventListener("click", () => {
 primaryAction.addEventListener("click", () => {
   if (currentView === "companies" || selected.companyId) return openCompanyModal();
   if (currentView === "lps") return openLpModal();
+  if (currentView === "projects") return openProjectModal();
   if (currentView === "funds" && selected.fundId) return openInvestmentModal({ fundId: selected.fundId });
   return openFundModal();
 });
@@ -301,6 +304,8 @@ function expandSeedState(baseState) {
   nextState.fundLps ||= [];
   nextState.companies ||= [];
   nextState.investments ||= [];
+  nextState.projects ||= [];
+  nextState.tickets ||= [];
   nextState.users ||= [];
 
   const fundOverrides = [
@@ -482,6 +487,65 @@ function expandSeedState(baseState) {
     }
   });
 
+  const projectTypes = ["Follow-on", "Board", "KPI", "Legal", "Hiring", "BD", "Exit", "Risk"];
+  const projectStatuses = ["Active", "Blocked", "Done", "Active", "Active"];
+  nextState.companies.slice(0, 14).forEach((company, index) => {
+    const ownerId = userIds[index % userIds.length];
+    addUnique(nextState.projects, {
+      id: `p-${company.id}-board`,
+      companyId: company.id,
+      name: `${company.name} Board Reporting`,
+      type: projectTypes[index % projectTypes.length],
+      status: projectStatuses[index % projectStatuses.length],
+      ownerId,
+      startDate: `2026-${String((index % 5) + 1).padStart(2, "0")}-01`,
+      targetDate: `2026-${String((index % 6) + 6).padStart(2, "0")}-20`,
+      priority: ["Medium", "High", "Critical", "Medium"][index % 4],
+      description: "분기 운영 리포팅, 주요 리스크, 후속 액션아이템 관리",
+    });
+    addUnique(nextState.projects, {
+      id: `p-${company.id}-follow`,
+      companyId: company.id,
+      name: `${company.name} Follow-on Readiness`,
+      type: "Follow-on",
+      status: index % 5 === 0 ? "Blocked" : "Active",
+      ownerId: userIds[(index + 1) % userIds.length],
+      startDate: `2026-${String((index % 4) + 2).padStart(2, "0")}-10`,
+      targetDate: `2026-${String((index % 5) + 7).padStart(2, "0")}-15`,
+      priority: ["High", "Medium", "Low", "Critical"][index % 4],
+      description: "후속 라운드 준비, KPI 검증, 투자자 커뮤니케이션",
+    });
+  });
+
+  const ticketStatuses = ["Backlog", "To Do", "In Progress", "Review", "Done"];
+  const ticketTemplates = [
+    "월간 KPI 업데이트 요청",
+    "이사회 자료 초안 검토",
+    "후속 투자자 타깃 리스트 정리",
+    "주요 계약 리스크 점검",
+    "채용 파이프라인 현황 확인",
+    "런웨이와 비용 계획 재점검",
+  ];
+  nextState.projects.slice(0, 22).forEach((project, projectIndex) => {
+    for (let index = 0; index < 3; index += 1) {
+      addUnique(nextState.tickets, {
+        id: `t-${project.id}-${index}`,
+        projectId: project.id,
+        companyId: project.companyId,
+        title: ticketTemplates[(projectIndex + index) % ticketTemplates.length],
+        description: "담당자 확인 후 상태와 마감일을 업데이트합니다.",
+        status: ticketStatuses[(projectIndex + index) % ticketStatuses.length],
+        priority: ["P2", "P1", "P3", "P0"][(projectIndex + index) % 4],
+        assigneeId: userIds[(projectIndex + index) % userIds.length],
+        dueDate: `2026-${String(((projectIndex + index) % 6) + 5).padStart(2, "0")}-${String(((projectIndex + index) % 20) + 5).padStart(2, "0")}`,
+        tags: [project.type, ["KPI", "Board", "Follow-on", "Risk"][(projectIndex + index) % 4]],
+        linkedInvestmentId: "",
+        createdAt: "2026-05-20T00:00:00.000Z",
+        updatedAt: "2026-05-20T00:00:00.000Z",
+      });
+    }
+  });
+
   return nextState;
 }
 
@@ -495,7 +559,29 @@ function normalizeState(nextState) {
   nextState.funds ||= [];
   nextState.companies ||= [];
   nextState.investments ||= [];
+  nextState.projects ||= [];
+  nextState.tickets ||= [];
   nextState.users ||= [];
+  nextState.projects.forEach((project) => {
+    project.name ||= project.project_name || "Untitled Project";
+    project.type ||= project.project_type || "Follow-on";
+    project.ownerId ||= project.owner_id || nextState.users[0]?.id || "";
+    project.startDate ||= project.start_date || "";
+    project.targetDate ||= project.target_date || "";
+    project.priority ||= "Medium";
+    project.status ||= "Active";
+    project.description ||= "";
+  });
+  nextState.tickets.forEach((ticket) => {
+    ticket.assigneeId ||= ticket.assignee_id || nextState.users[0]?.id || "";
+    ticket.dueDate ||= ticket.due_date || "";
+    ticket.priority ||= "P2";
+    ticket.status ||= "Backlog";
+    ticket.tags ||= [];
+    ticket.description ||= "";
+    ticket.createdAt ||= new Date().toISOString();
+    ticket.updatedAt ||= new Date().toISOString();
+  });
   nextState.investments.forEach((investment) => {
     investment.preMoneyValuation = Number(investment.preMoneyValuation || 0);
     investment.postMoneyValuation = Number(investment.postMoneyValuation || 0);
@@ -542,12 +628,13 @@ function routeToHash() {
   if (currentView === "companies" && selected.companyId) return `#/companies/${selected.companyId}`;
   if (currentView === "companies") return "#/companies";
   if (currentView === "lps") return "#/lps";
+  if (currentView === "projects") return "#/projects";
   return "#/";
 }
 
 function applyRouteFromHash() {
   const parts = (window.location.hash || "#/").replace(/^#\/?/, "").split("/").filter(Boolean);
-  currentView = parts[0] === "funds" || parts[0] === "companies" || parts[0] === "lps" ? parts[0] : "dashboard";
+  currentView = parts[0] === "funds" || parts[0] === "companies" || parts[0] === "lps" || parts[0] === "projects" ? parts[0] : "dashboard";
   selected = { fundId: null, companyId: null };
   if (currentView === "funds" && parts[1]) selected.fundId = parts[1];
   if (currentView === "companies" && parts[1]) selected.companyId = parts[1];
@@ -561,6 +648,7 @@ function render() {
     funds: selected.fundId ? "조합 상세" : "조합",
     companies: selected.companyId ? "포트폴리오사 상세" : "포트폴리오사",
     lps: "LP",
+    projects: "Projects",
   };
   pageTitle.textContent = titles[currentView];
   primaryAction.textContent = getPrimaryActionLabel();
@@ -569,11 +657,13 @@ function render() {
   if (currentView === "funds") return selected.fundId ? renderFundDetail(selected.fundId) : renderFunds();
   if (currentView === "companies") return selected.companyId ? renderCompanyDetail(selected.companyId) : renderCompanies();
   if (currentView === "lps") return renderLps();
+  if (currentView === "projects") return renderProjects();
 }
 
 function getPrimaryActionLabel() {
   if (currentView === "companies" || selected.companyId) return "포트폴리오사 추가";
   if (currentView === "lps") return "LP 추가";
+  if (currentView === "projects") return "프로젝트 추가";
   if (currentView === "funds" && selected.fundId) return "투자 내역 추가";
   return "조합 추가";
 }
@@ -582,32 +672,113 @@ function renderDashboard() {
   const activeFunds = state.funds.filter((fund) => fund.status === "운용중");
   const totalAum = sum(state.funds, "aum");
   const totalCommitted = sum(state.funds, "committedCapital");
+  const totalPaidIn = sum(state.funds, "paidInCapital");
+  const totalInvested = sum(state.investments, "investmentAmount");
+  const openTickets = state.tickets.filter((ticket) => ticket.status !== "Done");
+  const urgentTickets = openTickets
+    .slice()
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 6);
   const sectorCounts = groupCount(state.companies, "sector");
   const statusCounts = groupCount(state.companies, "status");
   const fundAum = state.funds
     .slice()
     .sort((a, b) => b.aum - a.aum)
-    .slice(0, 8)
+    .slice(0, 6)
     .map((fund) => ({ label: fund.name.replace(/^카바\s/, ""), count: fund.aum }));
+  const sortedFunds = state.funds.slice().sort((a, b) => b.aum - a.aum);
+  if (!dashboardFeaturedFundId || !state.funds.some((fund) => fund.id === dashboardFeaturedFundId)) {
+    dashboardFeaturedFundId = sortedFunds[0]?.id || "";
+  }
+  const featuredFund = state.funds.find((fund) => fund.id === dashboardFeaturedFundId) || sortedFunds[0];
 
   root.innerHTML = `
-    <section class="kpi-grid">
-      ${kpi("운용 중인 조합 수", `${activeFunds.length}개`)}
-      ${kpi("총 운용규모", formatKrw(totalAum))}
-      ${kpi("총 출자약정총액", formatKrw(totalCommitted))}
-      ${kpi("총 포트폴리오사 수", `${state.companies.length}개`)}
-    </section>
-    <section class="panel">
-      <div class="panel-header">
+    <section class="dashboard-summary">
+      <div class="summary-title">
         <div>
-          <h2>AUM by 조합</h2>
-          <p class="muted">운용규모 상위 조합 기준입니다.</p>
+          <h2>NUREERP 운용 현황</h2>
+          <p class="muted">기준일 ${new Date().toISOString().slice(0, 10)}</p>
+        </div>
+        <span class="badge success">Internal</span>
+      </div>
+      <div class="summary-grid">
+        ${summaryMetric("출자약정총액", formatKrw(totalCommitted))}
+        ${summaryMetric("출자이행총액", formatKrw(totalPaidIn))}
+        ${summaryMetric("총 운용규모", formatKrw(totalAum))}
+        ${summaryMetric("단순 수익률", `${totalPaidIn ? round(totalAum / totalPaidIn, 2) : 0}x`)}
+        ${summaryMetric("투자 집행총액", formatKrw(totalInvested))}
+        ${summaryMetric("운용 중인 조합", `${activeFunds.length}개`)}
+      </div>
+    </section>
+
+    <section class="dashboard-layout">
+      <div class="dashboard-main">
+        <div class="section-title-row">
+          <h2>조합 현황</h2>
+          <label class="fund-picker">
+            <span>대표 조합</span>
+            <select id="featured-fund-select">
+              ${sortedFunds
+                .map((fund) => `<option value="${fund.id}" ${fund.id === featuredFund?.id ? "selected" : ""}>${escapeHtml(fund.name)}</option>`)
+                .join("")}
+            </select>
+          </label>
+        </div>
+
+        ${featuredFund ? featuredFundCard(featuredFund, fundAum, sectorCounts) : ""}
+
+        <div class="compact-fund-list">
+          ${sortedFunds
+            .slice(1, 5)
+            .map((fund) => compactFundCard(fund))
+            .join("")}
+        </div>
+
+        <div class="dashboard-chart-grid">
+          <div class="metric-panel">
+            <div class="panel-header">
+              <div>
+                <h2>AUM by 조합</h2>
+                <p class="muted">운용규모 상위 조합 기준</p>
+              </div>
+            </div>
+            ${barChart(fundAum, { valueFormatter: formatKrw })}
+          </div>
+          <div class="metric-panel">
+            <div class="panel-header">
+              <div>
+                <h2>포트폴리오사 Status</h2>
+                <p class="muted">현재 상태 분포</p>
+              </div>
+            </div>
+            ${donutChart(statusCounts)}
+          </div>
         </div>
       </div>
-      ${barChart(fundAum, { valueFormatter: formatKrw })}
+
+      <aside class="ticket-dashboard">
+        <div class="ticket-head">
+          <div>
+            <h2>Ticket 관리 대시보드</h2>
+            <p class="muted">마감 임박 및 진행 중 업무</p>
+          </div>
+          <button class="small-button" data-action="view-projects" type="button">전체 보기</button>
+        </div>
+        <div class="ticket-kpis">
+          ${ticketKpi("Open", openTickets.length)}
+          ${ticketKpi("Due Soon", urgentTickets.filter((ticket) => daysUntil(ticket.dueDate) <= 14).length)}
+          ${ticketKpi("Blocked", state.tickets.filter((ticket) => ticket.status === "Blocked").length)}
+        </div>
+        ${dashboardTicketList(urgentTickets)}
+      </aside>
     </section>
-    <section class="two-column">
-      <div class="panel">
+
+    <section class="dashboard-bottom-grid">
+      <div class="metric-panel">
+        <h2>섹터별 투자 분포</h2>
+        ${donutChart(sectorCounts)}
+      </div>
+      <div class="metric-panel">
         <div class="panel-header">
           <div>
             <h2>조합 리스트</h2>
@@ -615,25 +786,17 @@ function renderDashboard() {
           </div>
           <button class="small-button" data-action="view-funds">전체 보기</button>
         </div>
-        ${fundTable(state.funds.slice().sort((a, b) => b.aum - a.aum), true)}
+        ${fundTable(sortedFunds.slice(0, 8), true)}
       </div>
-      <div class="panel">
-        <h2>섹터별 투자 분포</h2>
-        ${donutChart(sectorCounts)}
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>포트폴리오사 Status</h2>
-          <p class="muted">Active, Exited, Written-off 등 현재 상태 분포입니다.</p>
-        </div>
-      </div>
-      ${donutChart(statusCounts)}
     </section>
   `;
 
   root.querySelector("[data-action='view-funds']").addEventListener("click", () => setView("funds"));
+  root.querySelector("[data-action='view-projects']")?.addEventListener("click", () => setView("projects"));
+  root.querySelector("#featured-fund-select")?.addEventListener("change", (event) => {
+    dashboardFeaturedFundId = event.target.value;
+    render();
+  });
   bindFundRows();
 }
 
@@ -789,6 +952,8 @@ function renderCompanyDetail(companyId) {
   const investments = state.investments
     .filter((investment) => investment.companyId === company.id)
     .sort((a, b) => new Date(a.investmentDate) - new Date(b.investmentDate));
+  const companyProjects = state.projects.filter((project) => project.companyId === company.id);
+  const companyTickets = state.tickets.filter((ticket) => ticket.companyId === company.id);
 
   root.innerHTML = `
     <button class="ghost-button" data-action="back">← 포트폴리오사 목록</button>
@@ -810,6 +975,22 @@ function renderCompanyDetail(companyId) {
         ${info("누적 투자금액", formatKrw(company.totalInvestedAmount))}
         ${info("현재 Valuation", company.currentValuation ? formatKrw(company.currentValuation) : "-")}
         ${info("추정 보유지분율 합계", `${round(sum(investments, "ownershipAfter"), 1)}%`)}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Projects / Tickets</h2>
+          <p class="muted">이 포트폴리오사와 연결된 실행 업무입니다.</p>
+        </div>
+        <div class="row-actions">
+          <button class="small-button" data-action="add-company-project">프로젝트 추가</button>
+          <button class="small-button" data-action="add-company-ticket">티켓 추가</button>
+        </div>
+      </div>
+      <div class="two-column">
+        <div>${projectTable(companyProjects)}</div>
+        <div>${kanbanBoard(companyTickets)}</div>
       </div>
     </section>
     <section class="panel">
@@ -846,7 +1027,12 @@ function renderCompanyDetail(companyId) {
   });
   root.querySelector("[data-action='edit-company']").addEventListener("click", () => openCompanyModal(company));
   root.querySelector("[data-action='delete-company']").addEventListener("click", () => deleteCompany(company.id));
+  root.querySelector("[data-action='add-company-project']").addEventListener("click", () => openProjectModal({ companyId: company.id }));
+  root.querySelector("[data-action='add-company-ticket']").addEventListener("click", () => openTicketModal({ companyId: company.id }));
   bindFundLinks();
+  bindCompanyLinks();
+  bindProjectActions();
+  bindTicketActions();
   bindInvestmentActions();
 }
 
@@ -905,8 +1091,310 @@ function renderLps() {
   bindFundLpActions();
 }
 
+function renderProjects() {
+  const filteredProjects = state.projects.filter((project) => {
+    const q = filters.projects.q.toLowerCase();
+    const company = getCompany(project.companyId);
+    return (
+      (!q || project.name.toLowerCase().includes(q) || company?.name.toLowerCase().includes(q)) &&
+      (filters.projects.company === "all" || project.companyId === filters.projects.company) &&
+      (filters.projects.status === "all" || project.status === filters.projects.status) &&
+      (filters.projects.owner === "all" || project.ownerId === filters.projects.owner) &&
+      (filters.projects.priority === "all" || project.priority === filters.projects.priority)
+    );
+  });
+  const visibleProjectIds = new Set(filteredProjects.map((project) => project.id));
+  const visibleTickets = state.tickets.filter((ticket) => visibleProjectIds.has(ticket.projectId));
+
+  root.innerHTML = `
+    <section class="project-command">
+      <div>
+        <h2>Portfolio Project Layer</h2>
+        <p class="muted">포트폴리오사별 프로젝트와 티켓을 한 화면에서 관리합니다.</p>
+      </div>
+      <div class="project-actions">
+        <button class="primary-button" data-action="add-project">프로젝트 추가</button>
+        <button class="ghost-button" data-action="add-ticket">티켓 추가</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="filter-row">
+        <input id="project-q" placeholder="프로젝트 또는 회사 검색" value="${escapeHtml(filters.projects.q)}" />
+        ${selectFromItems("project-company", state.companies.map((company) => ({ id: company.id, name: company.name })), filters.projects.company, "회사 전체")}
+        ${selectHtml("project-status", ["all", ...unique(state.projects.map((project) => project.status))], filters.projects.status, "상태 전체")}
+        ${selectFromItems("project-owner", state.users, filters.projects.owner, "담당자 전체")}
+        ${selectHtml("project-priority", ["all", ...unique(state.projects.map((project) => project.priority))], filters.projects.priority, "우선순위 전체")}
+      </div>
+      <div class="project-overview-grid">
+        ${projectOverviewCard("프로젝트", filteredProjects.length)}
+        ${projectOverviewCard("Open Tickets", visibleTickets.filter((ticket) => ticket.status !== "Done").length)}
+        ${projectOverviewCard("Due Soon", visibleTickets.filter((ticket) => ticket.status !== "Done" && daysUntil(ticket.dueDate) <= 14).length)}
+        ${projectOverviewCard("Review", visibleTickets.filter((ticket) => ticket.status === "Review").length)}
+      </div>
+    </section>
+
+    <section class="two-column">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Projects</h2>
+            <p class="muted">프로젝트를 클릭하면 연결된 회사 상세로 이동합니다.</p>
+          </div>
+        </div>
+        ${projectTable(filteredProjects)}
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Workload</h2>
+            <p class="muted">담당자별 open ticket 수</p>
+          </div>
+        </div>
+        ${barChart(userWorkload(visibleTickets), { valueFormatter: (value) => `${value}개` })}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Kanban</h2>
+          <p class="muted">상태별 티켓 현황입니다. 카드의 수정 버튼으로 상태를 변경합니다.</p>
+        </div>
+      </div>
+      ${kanbanBoard(visibleTickets)}
+    </section>
+  `;
+
+  bindFilter("project-q", "projects", "q");
+  bindFilter("project-company", "projects", "company");
+  bindFilter("project-status", "projects", "status");
+  bindFilter("project-owner", "projects", "owner");
+  bindFilter("project-priority", "projects", "priority");
+  root.querySelector("[data-action='add-project']").addEventListener("click", () => openProjectModal());
+  root.querySelector("[data-action='add-ticket']").addEventListener("click", () => openTicketModal());
+  bindCompanyLinks();
+  bindProjectActions();
+  bindTicketActions();
+}
+
 function kpi(label, value) {
   return `<article class="kpi-card"><span>${label}</span><strong>${value}</strong></article>`;
+}
+
+function summaryMetric(label, value) {
+  return `
+    <article class="summary-metric">
+      <span>${label}</span>
+      <strong>${value}</strong>
+    </article>
+  `;
+}
+
+function featuredFundCard(fund, fundAum, sectorCounts) {
+  return `
+    <article class="featured-fund clickable" data-fund-id="${fund.id}">
+      <div class="featured-fund-head">
+        <div>
+          <span class="badge">조합</span>
+          <h3>${escapeHtml(fund.name)}</h3>
+          <p>${fund.type} · 결성일 ${fund.incorporationDate} · KRW · 대표매니저 ${getUserName(fund.leadManagerId)}</p>
+        </div>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="featured-fund-body">
+        <div class="fund-side-metrics">
+          ${sideMetric("납입 현황", formatKrw(fund.paidInCapital), `약정 ${formatKrw(fund.committedCapital)}`, `${round(paidInRate(fund), 1)}%`)}
+          ${sideMetric("만기일", fund.maturityDate, maturityText(fund), "")}
+          ${sideMetric("투자 현황", formatKrw(sum(state.investments.filter((item) => item.fundId === fund.id), "investmentAmount")), "집행 기준", `${round(simpleReturn(fund), 2)}x`)}
+        </div>
+        <div class="fund-chart-area">
+          <div class="chart-card-title">
+            <h3>누적 운용규모 현황</h3>
+            <div class="segmented-control">
+              <span class="active">분기별</span>
+              <span>월별</span>
+              <span>연별</span>
+            </div>
+          </div>
+          ${barChart(fundAum, { valueFormatter: formatKrw })}
+        </div>
+      </div>
+      <div class="featured-fund-footer">
+        <div>
+          <h3>분야별 투자현황</h3>
+          ${donutChart(sectorCounts.slice(0, 6))}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function sideMetric(label, value, subValue, badgeText) {
+  return `
+    <div class="side-metric">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <small>${subValue}</small>
+      ${badgeText ? `<em>${badgeText}</em>` : ""}
+    </div>
+  `;
+}
+
+function compactFundCard(fund) {
+  return `
+    <article class="compact-fund-card clickable" data-fund-id="${fund.id}">
+      <div>
+        <span class="badge">조합</span>
+        <strong>${escapeHtml(fund.name)}</strong>
+        <small>${fund.type} · 결성일 ${fund.incorporationDate} · ${getUserName(fund.leadManagerId)}</small>
+      </div>
+      <span class="chevron">▶</span>
+    </article>
+  `;
+}
+
+function ticketKpi(label, value) {
+  return `<article><span>${label}</span><strong>${value}</strong></article>`;
+}
+
+function dashboardTicketList(tickets) {
+  if (!tickets.length) {
+    return `
+      <div class="ticket-empty">
+        <strong>아직 등록된 티켓이 없습니다.</strong>
+        <p>프로젝트와 티켓을 추가하면 이곳에 마감 임박 업무가 표시됩니다.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="ticket-live-list">
+      ${tickets.map((ticket) => ticketCard(ticket, "compact")).join("")}
+    </div>
+  `;
+}
+
+function projectOverviewCard(label, value) {
+  return `<article class="project-overview-card"><span>${label}</span><strong>${value}</strong></article>`;
+}
+
+function projectTable(projects) {
+  if (!projects.length) return `<div class="empty-state">표시할 프로젝트가 없습니다.</div>`;
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>프로젝트</th>
+            <th>회사</th>
+            <th>유형</th>
+            <th>상태</th>
+            <th>담당자</th>
+            <th>목표일</th>
+            <th>우선순위</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${projects
+            .map((project) => {
+              const company = getCompany(project.companyId);
+              return `
+                <tr>
+                  <td><strong>${escapeHtml(project.name)}</strong></td>
+                  <td><button class="small-button" data-company-link="${project.companyId}">${escapeHtml(company?.name || "-")}</button></td>
+                  <td>${project.type}</td>
+                  <td>${statusBadge(project.status)}</td>
+                  <td>${getUserName(project.ownerId)}</td>
+                  <td>${project.targetDate || "-"}</td>
+                  <td>${priorityBadge(project.priority)}</td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="small-button" data-project-edit="${project.id}">수정</button>
+                      <button class="danger-button" data-project-delete="${project.id}">삭제</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function kanbanBoard(tickets) {
+  const statuses = ["Backlog", "To Do", "In Progress", "Review", "Done"];
+  return `
+    <div class="kanban-board">
+      ${statuses
+        .map((status) => {
+          const statusTickets = tickets.filter((ticket) => ticket.status === status);
+          return `
+            <section class="kanban-column">
+              <header>
+                <strong>${status}</strong>
+                <span>${statusTickets.length}</span>
+              </header>
+              <div class="kanban-cards">
+                ${statusTickets.length ? statusTickets.map((ticket) => ticketCard(ticket)).join("") : `<div class="kanban-empty">비어 있음</div>`}
+              </div>
+            </section>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function ticketCard(ticket, variant = "full") {
+  const company = getCompany(ticket.companyId);
+  const project = getProject(ticket.projectId);
+  const dueDays = daysUntil(ticket.dueDate);
+  const dueClass = dueDays < 0 ? "danger" : dueDays <= 14 ? "warning" : "";
+  return `
+    <article class="ticket-card ${variant === "compact" ? "compact" : ""}">
+      <div class="ticket-card-head">
+        <span class="ticket-priority ${ticket.priority.toLowerCase()}">${ticket.priority}</span>
+        <span class="ticket-due ${dueClass}">${ticket.dueDate || "-"}</span>
+      </div>
+      <strong>${escapeHtml(ticket.title)}</strong>
+      <p>${escapeHtml(company?.name || "-")}${variant === "full" ? ` · ${escapeHtml(project?.name || "-")}` : ""}</p>
+      <div class="ticket-card-meta">
+        <span>${getUserName(ticket.assigneeId)}</span>
+        <span>${ticket.status}</span>
+      </div>
+      ${variant === "full" ? `
+        <div class="row-actions">
+          <button class="small-button" data-ticket-edit="${ticket.id}">수정</button>
+          <button class="danger-button" data-ticket-delete="${ticket.id}">삭제</button>
+        </div>
+      ` : ""}
+    </article>
+  `;
+}
+
+function userWorkload(tickets) {
+  return state.users
+    .map((user) => ({
+      label: user.name,
+      count: tickets.filter((ticket) => ticket.assigneeId === user.id && ticket.status !== "Done").length,
+    }))
+    .filter((item) => item.count > 0);
+}
+
+function getCompany(id) {
+  return state.companies.find((company) => company.id === id);
+}
+
+function getProject(id) {
+  return state.projects.find((project) => project.id === id);
+}
+
+function priorityBadge(priority) {
+  const className = priority === "Critical" || priority === "P0" || priority === "P1" ? "danger" : priority === "High" || priority === "P2" ? "warning" : "success";
+  return `<span class="badge ${className}">${priority}</span>`;
 }
 
 function info(label, value) {
@@ -1232,8 +1720,8 @@ function trendChart(items, key, title, formatter) {
         <span>${formatter(values.at(-1))}</span>
       </div>
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${title} 변화">
-        <polyline points="${polyline}" fill="none" stroke="#14b8a6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="5" fill="#60a5fa" />`).join("")}
+        <polyline points="${polyline}" fill="none" stroke="#0f6f68" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        ${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="5" fill="#59436f" />`).join("")}
       </svg>
       <div class="mini-chart-labels">
         ${entries.map((item) => `<span>${item.round}</span>`).join("")}
@@ -1492,6 +1980,81 @@ function openInvestmentModal({ fundId = "", investment = null } = {}) {
   openModal();
 }
 
+function openProjectModal({ companyId = "", project = null } = {}) {
+  modalTitle.textContent = project ? "프로젝트 수정" : "프로젝트 추가";
+  modalForm.innerHTML = `
+    ${field("프로젝트명", "name", project?.name || "", "text", true)}
+    ${selectField("포트폴리오사", "companyId", state.companies.map((company) => ({ value: company.id, label: company.name })), project?.companyId || companyId || state.companies[0]?.id)}
+    ${selectField("유형", "type", ["Follow-on", "Board", "KPI", "Legal", "Hiring", "BD", "Exit", "Risk"], project?.type || "Follow-on")}
+    ${selectField("상태", "status", ["Not Started", "Active", "Blocked", "Done", "Archived"], project?.status || "Active")}
+    ${selectField("담당자", "ownerId", state.users.map((user) => ({ value: user.id, label: user.name })), project?.ownerId || currentUserId)}
+    ${selectField("우선순위", "priority", ["Low", "Medium", "High", "Critical"], project?.priority || "Medium")}
+    ${field("시작일", "startDate", project?.startDate || "", "date", false)}
+    ${field("목표일", "targetDate", project?.targetDate || "", "date", false)}
+    ${textareaField("설명", "description", project?.description || "")}
+    ${formActions(project ? "수정" : "추가")}
+  `;
+  modalForm.onsubmit = (event) => {
+    event.preventDefault();
+    const data = formData(modalForm);
+    upsert("projects", {
+      id: project?.id || newId(),
+      companyId: data.companyId,
+      name: data.name,
+      type: data.type,
+      status: data.status,
+      ownerId: data.ownerId,
+      startDate: data.startDate,
+      targetDate: data.targetDate,
+      priority: data.priority,
+      description: data.description,
+    });
+    closeModal();
+  };
+  openModal();
+}
+
+function openTicketModal({ companyId = "", projectId = "", ticket = null } = {}) {
+  const defaultCompanyId = ticket?.companyId || companyId || state.companies[0]?.id;
+  const projectOptions = state.projects
+    .filter((project) => !defaultCompanyId || project.companyId === defaultCompanyId)
+    .map((project) => ({ value: project.id, label: project.name }));
+  modalTitle.textContent = ticket ? "티켓 수정" : "티켓 추가";
+  modalForm.innerHTML = `
+    ${field("티켓 제목", "title", ticket?.title || "", "text", true)}
+    ${selectField("포트폴리오사", "companyId", state.companies.map((company) => ({ value: company.id, label: company.name })), defaultCompanyId)}
+    ${selectField("프로젝트", "projectId", projectOptions.length ? projectOptions : state.projects.map((project) => ({ value: project.id, label: project.name })), ticket?.projectId || projectId || projectOptions[0]?.value || state.projects[0]?.id)}
+    ${selectField("상태", "status", ["Backlog", "To Do", "In Progress", "Review", "Done"], ticket?.status || "To Do")}
+    ${selectField("우선순위", "priority", ["P3", "P2", "P1", "P0"], ticket?.priority || "P2")}
+    ${selectField("담당자", "assigneeId", state.users.map((user) => ({ value: user.id, label: user.name })), ticket?.assigneeId || currentUserId)}
+    ${field("마감일", "dueDate", ticket?.dueDate || "", "date", false)}
+    ${field("태그", "tags", (ticket?.tags || []).join(", "), "text", false)}
+    ${textareaField("설명", "description", ticket?.description || "")}
+    ${formActions(ticket ? "수정" : "추가")}
+  `;
+  modalForm.onsubmit = (event) => {
+    event.preventDefault();
+    const data = formData(modalForm);
+    upsert("tickets", {
+      id: ticket?.id || newId(),
+      projectId: data.projectId,
+      companyId: data.companyId,
+      title: data.title,
+      description: data.description,
+      status: data.status,
+      priority: data.priority,
+      assigneeId: data.assigneeId,
+      dueDate: data.dueDate,
+      tags: data.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      linkedInvestmentId: ticket?.linkedInvestmentId || "",
+      createdAt: ticket?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    closeModal();
+  };
+  openModal();
+}
+
 function openModal() {
   modalBackdrop.classList.remove("hidden");
   const firstInput = modalForm.querySelector("input, select, textarea");
@@ -1572,6 +2135,21 @@ function deleteInvestment(id) {
   if (!investment || !confirm("이 투자 내역을 삭제할까요?")) return;
   state.investments = state.investments.filter((item) => item.id !== id);
   recalculateCompanyInvestment(investment.companyId);
+  saveState();
+  render();
+}
+
+function deleteProject(id) {
+  if (!confirm("이 프로젝트와 연결된 티켓을 함께 삭제할까요?")) return;
+  state.projects = state.projects.filter((project) => project.id !== id);
+  state.tickets = state.tickets.filter((ticket) => ticket.projectId !== id);
+  saveState();
+  render();
+}
+
+function deleteTicket(id) {
+  if (!confirm("이 티켓을 삭제할까요?")) return;
+  state.tickets = state.tickets.filter((ticket) => ticket.id !== id);
   saveState();
   render();
 }
@@ -1766,6 +2344,30 @@ function bindFundLpActions() {
   });
 }
 
+function bindProjectActions() {
+  root.querySelectorAll("[data-project-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const project = state.projects.find((item) => item.id === button.dataset.projectEdit);
+      if (project) openProjectModal({ project });
+    });
+  });
+  root.querySelectorAll("[data-project-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteProject(button.dataset.projectDelete));
+  });
+}
+
+function bindTicketActions() {
+  root.querySelectorAll("[data-ticket-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const ticket = state.tickets.find((item) => item.id === button.dataset.ticketEdit);
+      if (ticket) openTicketModal({ ticket });
+    });
+  });
+  root.querySelectorAll("[data-ticket-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteTicket(button.dataset.ticketDelete));
+  });
+}
+
 function formData(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
@@ -1800,6 +2402,13 @@ function maturityBadge(fund) {
   if (days < 0) return `<span class="badge danger">만기 경과</span>`;
   if (days <= 180) return `<span class="badge warning">만기 임박</span>`;
   return `<span class="badge success">${Math.ceil(days / 365)}년 남음</span>`;
+}
+
+function maturityText(fund) {
+  const days = daysUntil(fund.maturityDate);
+  if (Number.isNaN(days)) return "-";
+  if (days < 0) return `${Math.abs(days).toLocaleString("ko-KR")}일 경과`;
+  return `잔여 ${days.toLocaleString("ko-KR")}일`;
 }
 
 function daysUntil(dateText) {
